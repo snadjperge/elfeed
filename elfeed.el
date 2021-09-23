@@ -407,8 +407,19 @@ If PROTOCOL is nil, returns URL."
                     (link (xml-query* (link *) item))
                     (date (or (xml-query* (pubDate *) item)
                               (xml-query* (date *) item)))
-                    (description
-                     (apply #'concat (xml-query-all* (description *) item)))
+                     (authors (nconc (elfeed--rss-author-to-plist
+                                     (xml-query* (author *) item))
+                                    ;; Dublin Core
+                                    (elfeed--creators-to-plist
+                                     (xml-query-all* (creator *) item)))
+                     )
+                    (content (or (xml-query-all* (encoded *) item)
+                                 (xml-query-all* (description *) item)))
+                    (description (apply #'concat content))
+;
+
+                    ;; (description
+                    ;;  (apply #'concat (xml-query-all* (description *) item)))
                     (id (or link (elfeed-generate-id description)))
                     (full-id (cons namespace (elfeed-cleanup id)))
                     (original (elfeed-db-get-entry full-id))
@@ -423,7 +434,11 @@ If PROTOCOL is nil, returns URL."
                                :date (elfeed-new-date-for-entry
                                       original-date date)
                                :content description
-                               :content-type 'html)))
+                               :content-type 'html
+                               :meta `(,@(when authors
+                                           (list :authors authors))
+                                      )
+                               )))
                (dolist (hook elfeed-new-entry-parse-hook)
                  (funcall hook :rss1.0 item db-entry))
                db-entry))))
